@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Production Inventory Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: light;
+        /* Blue Robotics–inspired palette; red/yellow/blue kept for stock level bars */
+        --bg: #f0f4f8;
+        --card: #ffffff;
+        --text: #0c2340;
+        --muted: #4a6fa5;
+        --border: #c5d4e8;
+        --accent: #006994;
+        --red: #b91c1c;
+        --yellow: #eab308;
+        --blue: #1d4ed8;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Inter", "Source Sans 3", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #e8eef4;
+        color: var(--text);
+        height: 100vh;
+        margin: 0;
+        display: flex;
+        align-items: stretch;
+        justify-content: stretch;
+        padding: 1rem;
+      }
+
+      .shell {
+        width: 100%;
+        max-width: none;
+        min-height: 100%;
+        background: var(--card);
+        border-radius: 0.75rem;
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+        padding: 1.25rem 1.5rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        overflow: hidden;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      h1 span.badge {
+        font-size: 0.65rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        border: 1px solid var(--accent);
+        background: rgba(2, 132, 199, 0.1);
+        color: var(--accent);
+      }
+
+      .subtitle {
+        font-size: 0.8rem;
+        color: var(--muted);
+        max-width: 480px;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .refresh-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .last-refreshed {
+        font-size: 0.7rem;
+        color: var(--muted);
+      }
+
+      button.icon {
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        cursor: pointer;
+        transition: all 0.17s ease;
+      }
+
+      button.icon:hover {
+        border-color: var(--accent);
+        background: rgba(2, 132, 199, 0.06);
+      }
+
+      button.icon span.dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+
+      #refresh-btn {
+        padding: 0.6rem 1.1rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+      }
+
+      #refresh-btn:hover {
+        background: #005a7a;
+        color: #fff;
+        border: none;
+      }
+
+      #refresh-btn .refresh-icon {
+        display: inline-flex;
+        width: 1.1em;
+        height: 1.1em;
+      }
+
+      #refresh-btn.loading .refresh-icon {
+        animation: refresh-spin 0.7s linear infinite;
+      }
+
+      #refresh-btn.loading {
+        pointer-events: none;
+        opacity: 0.9;
+      }
+
+      @keyframes refresh-spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border: 2px solid var(--border);
+        border-radius: 0.75rem;
+        background: var(--bg);
+      }
+
+      .tab {
+        flex: 1;
+        min-width: 0;
+        font-size: 0.875rem;
+        font-weight: 700;
+        padding: 0.4rem 0.85rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--muted);
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: all 0.16s ease;
+      }
+
+      .tab:hover {
+        border-color: var(--accent);
+        background: rgba(0, 105, 148, 0.06);
+      }
+
+      .tab.active {
+        background: var(--card);
+        border-color: var(--accent);
+        color: var(--accent);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+
+      .tab span.pill {
+        font-size: 0.65rem;
+        margin-left: 0.35rem;
+        color: var(--muted);
+      }
+
+      .tab-wrap {
+        position: relative;
+        flex: 1;
+        display: flex;
+      }
+
+      .tab-wrap .tab {
+        flex: 1;
+      }
+
+      .tab-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 0;
+        min-width: 100%;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 0 0 0.5rem 0.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 10;
+        padding: 0.25rem 0;
+      }
+
+      .tab-wrap:hover .tab-dropdown {
+        display: block;
+      }
+
+      .tab-wrap::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        height: 4px;
+      }
+
+      .tab-dropdown-item {
+        display: block;
+        width: 100%;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+        text-align: left;
+        border: none;
+        background: none;
+        color: var(--text);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .tab-dropdown-item:hover {
+        background: var(--bg);
+      }
+
+      .tab-dropdown-item.active {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .content {
+        flex: 1;
+        min-height: 0;
+        background: var(--bg);
+        border-radius: 0.75rem;
+        border: 1px solid var(--border);
+        padding: 1rem 1.25rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        overflow: hidden;
+      }
+
+      .legend-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.7rem;
+        color: var(--muted);
+      }
+
+      .sort-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .sort-label {
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+
+      .sort-select {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.5rem;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .legend-item {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.1rem;
+      }
+
+      .legend-item .legend-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+
+      .legend-item .legend-sub {
+        font-size: 0.7rem;
+        color: var(--muted);
+        padding-left: 1.35rem;
+      }
+
+      .swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+      }
+
+      .swatch.red {
+        background: var(--red);
+      }
+      .swatch.yellow {
+        background: var(--yellow);
+      }
+      .swatch.blue {
+        background: var(--blue);
+      }
+
+      .table-wrapper {
+        flex: 1;
+        min-height: 0;
+        border-radius: 0.75rem;
+        overflow: auto;
+        border: 1px solid var(--border);
+        background: var(--card);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+        table-layout: fixed;
+      }
+
+      th:nth-child(1),
+      td:nth-child(1) {
+        width: 220px;
+        min-width: 220px;
+        max-width: 280px;
+        white-space: normal;
+        word-break: break-word;
+      }
+
+      th:nth-child(2),
+      td:nth-child(2) {
+        width: 320px;
+        max-width: 320px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      th:nth-child(3),
+      td:nth-child(3) {
+        width: 110px;
+        max-width: 110px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      th:nth-child(4),
+      td:nth-child(4),
+      th:nth-child(5),
+      td:nth-child(5),
+      th:nth-child(6),
+      td:nth-child(6) {
+        width: 85px;
+        max-width: 85px;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+      }
+
+      th:nth-child(7),
+      td:nth-child(7) {
+        width: 65%;
+        min-width: 320px;
+      }
+
+      thead {
+        background: var(--bg);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        box-shadow: 0 1px 0 var(--border);
+      }
+
+      th {
+        text-align: left;
+        padding: 0.55rem 0.75rem;
+        color: var(--muted);
+        font-weight: 600;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+        background: var(--bg);
+      }
+
+      tbody tr {
+        transition: background 0.12s ease;
+      }
+
+      td {
+        padding: 0.55rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      tr.red {
+        background: rgba(220, 38, 38, 0.08);
+      }
+
+      tr.yellow {
+        background: rgba(202, 138, 4, 0.08);
+      }
+
+      tr.blue {
+        background: rgba(37, 99, 235, 0.06);
+      }
+
+      tr.red:hover,
+      tr.yellow:hover,
+      tr.blue:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+      }
+
+      tr.neutral {
+        background: var(--card);
+      }
+
+      tr.neutral:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+      }
+
+      .status-bar-fill.neutral {
+        background: var(--border);
+      }
+
+      .header-two-line {
+        white-space: nowrap;
+      }
+      .header-two-line span {
+        display: block;
+        line-height: 1.2;
+      }
+      .header-two-line span.sub {
+        font-size: 0.7em;
+        font-weight: 400;
+        color: var(--muted);
+      }
+
+      .safety-bar-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        min-width: 220px;
+        width: 100%;
+      }
+
+      .safety-bar-legend {
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        text-align: right;
+        line-height: 1;
+      }
+
+      .safety-bar-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-width: 0;
+        width: 100%;
+      }
+
+      .comment-inline {
+        flex: 0 1 auto;
+        min-width: 80px;
+        max-width: 220px;
+        width: 100%;
+        min-height: 1.1rem;
+        padding: 0.2rem 0.35rem;
+        font-size: 0.8rem;
+        font-family: inherit;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        box-sizing: border-box;
+        color: var(--text);
+        background: #fff;
+        resize: none;
+        overflow-y: hidden;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
+      .comment-inline::placeholder {
+        color: #9ca3af;
+      }
+      .comment-inline:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      .safety-bar-edge {
+        font-size: 0.7rem;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        flex-shrink: 0;
+      }
+
+      .safety-bar-track-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .status-bar-track {
+        display: inline-block;
+        width: 100%;
+        min-width: 64px;
+        max-width: 100%;
+        height: 10px;
+        border-radius: 5px;
+        background: #e2e8f0;
+        overflow: visible;
+        vertical-align: middle;
+      }
+
+      .status-bar-fill {
+        display: block;
+        height: 100%;
+        border-radius: 5px;
+        min-width: 2px;
+        transition: width 0.2s ease;
+        box-sizing: border-box;
+      }
+
+      .status-bar-fill.red {
+        background: var(--red);
+      }
+      .status-bar-fill.yellow {
+        background: var(--yellow);
+      }
+      .status-bar-fill.blue {
+        background: var(--blue);
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.7rem;
+        color: var(--muted);
+        padding-top: 0.25rem;
+      }
+
+      .badge-small {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.4rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding: 1rem;
+        }
+
+        .shell {
+          padding: 1.25rem 1.25rem 1.5rem;
+        }
+
+        .header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .tabs {
+          width: 100%;
+          overflow-x: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="header">
+        <div class="title-block">
+          <h1>Production Inventory</h1>
+          <p class="subtitle">
+            Live view of available inventory compared to our minimum stock levels and what we need to make, organized by Department
+          </p>
+        </div>
+        <div class="controls">
+          <div class="refresh-block">
+            <button class="icon" id="refresh-btn">
+            <span class="refresh-icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 4v6h-6"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </span>
+            <span class="btn-label">Refresh</span>
+          </button>
+            <div id="last-refreshed" class="last-refreshed muted" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabs" id="work-area-tabs"></div>
+
+      <div class="content">
+        <div class="legend-row">
+          <div class="legend">
+            <span class="legend-item">
+              <span class="legend-main"><span class="swatch red"></span> On Hand/Backorders</span>
+              <span class="legend-sub">On hand &lt; 0</span>
+            </span>
+            <span class="legend-item">
+              <span class="legend-main"><span class="swatch yellow"></span> Within Safety Stock</span>
+              <span class="legend-sub">0 ≤ On hand ≤ Min</span>
+            </span>
+            <span class="legend-item">
+              <span class="legend-main"><span class="swatch blue"></span> Overstock</span>
+              <span class="legend-sub">On Hand &gt; Min</span>
+            </span>
+          </div>
+          <div class="sort-controls">
+            <label for="sort-direction" class="sort-label">Below min</label>
+            <select id="sort-direction" class="sort-select">
+              <option value="asc">Ascending</option>
+              <option value="desc" selected>Descending</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Internal Ref</th>
+                <th>Name</th>
+                <th>Work Area</th>
+                <th class="mono header-two-line"><span>On Hand</span><span class="sub">(Unreserved)</span></th>
+                <th class="mono">Min Qty</th>
+                <th class="mono">To Make</th>
+                <th>Safety Stock</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+
+        <div class="footer">
+          <div id="summary" class="muted"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = typeof window !== "undefined" && window.location?.host ? `${window.location.origin}/api` : "http://localhost:8001/api";
+
+      const VEHICLES_TAB_ID = "Vehicles";
+      // Vehicles tab pulls from these three work areas in one request
+      const VEHICLES_WORK_AREAS = ["ROV", "FXTI/SPOOL/TETHER", "BlueBoat"];
+
+      const state = {
+        tabs: [
+          { id: "Sensors", label: "Sensors" },
+          { id: "Thrusters", label: "Propulsion" },
+          { id: VEHICLES_TAB_ID, label: "Vehicles" },
+          { id: "FAA", label: "FAA" },
+          { id: "WetLink", label: "WetLink" },
+          { id: "Packing", label: "Packing" },
+        ],
+        activeTabId: "Sensors",
+        sensorsSubFilter: "all",
+        propulsionSubFilter: "all",
+        packingSubFilter: "all",
+        rows: [],
+        sortKey: "to_order",
+        sortDir: "desc",
+      };
+
+      const tabsEl = document.getElementById("work-area-tabs");
+      const tbodyEl = document.getElementById("table-body");
+      const refreshBtn = document.getElementById("refresh-btn");
+      const lastRefreshedEl = document.getElementById("last-refreshed");
+      const summaryEl = document.getElementById("summary");
+      const sortDirectionEl = document.getElementById("sort-direction");
+
+      const SENSORS_SUB_OPTIONS = [
+        { value: "all", label: "All", workArea: "Sensors" },
+        { value: "custom", label: "Custom", workArea: "Sensors-Custom" },
+        { value: "misc", label: "Miscellaneous", workArea: "Sensors-Misc" },
+      ];
+      function getWorkAreasForTab(tabId) {
+        if (tabId === VEHICLES_TAB_ID) return VEHICLES_WORK_AREAS;
+        if (tabId === "Sensors") {
+          const opt = SENSORS_SUB_OPTIONS.find((o) => o.value === state.sensorsSubFilter);
+          return [opt ? opt.workArea : "Sensors"];
+        }
+        if (tabId === "Thrusters" && state.propulsionSubFilter === "custom") return ["Thrusters-Custom"];
+        if (tabId === "Packing" && state.packingSubFilter === "blueboat") return ["BB120 Packing"];
+        return [tabId];
+      }
+
+      function formatNumber(value) {
+        return Number(value || 0).toLocaleString(undefined, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        });
+      }
+
+      function renderTabs() {
+        tabsEl.innerHTML = "";
+        state.tabs.forEach((tab) => {
+          if (tab.id === "Sensors") {
+            const wrap = document.createElement("div");
+            wrap.className = "tab-wrap";
+            const btn = document.createElement("button");
+            btn.className = "tab" + (tab.id === state.activeTabId ? " active" : "");
+            btn.textContent = tab.label;
+            btn.onclick = () => {
+              state.activeTabId = tab.id;
+              renderTabs();
+              fetchData();
+            };
+            const dropdown = document.createElement("div");
+            dropdown.className = "tab-dropdown";
+            SENSORS_SUB_OPTIONS.forEach((opt) => {
+              const item = document.createElement("button");
+              item.type = "button";
+              item.className = "tab-dropdown-item" + (state.sensorsSubFilter === opt.value ? " active" : "");
+              item.textContent = opt.label;
+              item.onclick = (e) => {
+                e.stopPropagation();
+                state.sensorsSubFilter = opt.value;
+                state.activeTabId = "Sensors";
+                renderTabs();
+                fetchData();
+              };
+              dropdown.appendChild(item);
+            });
+            wrap.appendChild(btn);
+            wrap.appendChild(dropdown);
+            tabsEl.appendChild(wrap);
+          } else if (tab.id === "Thrusters") {
+            const wrap = document.createElement("div");
+            wrap.className = "tab-wrap";
+            const btn = document.createElement("button");
+            btn.className = "tab" + (tab.id === state.activeTabId ? " active" : "");
+            btn.textContent = tab.label;
+            btn.onclick = () => {
+              state.activeTabId = tab.id;
+              renderTabs();
+              fetchData();
+            };
+            const dropdown = document.createElement("div");
+            dropdown.className = "tab-dropdown";
+            ["all", "custom"].forEach((opt) => {
+              const item = document.createElement("button");
+              item.type = "button";
+              item.className = "tab-dropdown-item" + (state.propulsionSubFilter === opt ? " active" : "");
+              item.textContent = opt === "all" ? "All" : "Custom";
+              item.onclick = (e) => {
+                e.stopPropagation();
+                state.propulsionSubFilter = opt;
+                state.activeTabId = "Thrusters";
+                renderTabs();
+                fetchData();
+              };
+              dropdown.appendChild(item);
+            });
+            wrap.appendChild(btn);
+            wrap.appendChild(dropdown);
+            tabsEl.appendChild(wrap);
+          } else if (tab.id === "Packing") {
+            const wrap = document.createElement("div");
+            wrap.className = "tab-wrap";
+            const btn = document.createElement("button");
+            btn.className = "tab" + (tab.id === state.activeTabId ? " active" : "");
+            btn.textContent = tab.label;
+            btn.onclick = () => {
+              state.activeTabId = tab.id;
+              renderTabs();
+              fetchData();
+            };
+            const dropdown = document.createElement("div");
+            dropdown.className = "tab-dropdown";
+            ["all", "blueboat"].forEach((opt) => {
+              const item = document.createElement("button");
+              item.type = "button";
+              item.className = "tab-dropdown-item" + (state.packingSubFilter === opt ? " active" : "");
+              item.textContent = opt === "all" ? "All" : "BlueBoat";
+              item.onclick = (e) => {
+                e.stopPropagation();
+                state.packingSubFilter = opt;
+                state.activeTabId = "Packing";
+                renderTabs();
+                fetchData();
+              };
+              dropdown.appendChild(item);
+            });
+            wrap.appendChild(btn);
+            wrap.appendChild(dropdown);
+            tabsEl.appendChild(wrap);
+          } else {
+            const btn = document.createElement("button");
+            btn.className = "tab" + (tab.id === state.activeTabId ? " active" : "");
+            btn.textContent = tab.label;
+            btn.onclick = () => {
+              state.activeTabId = tab.id;
+              if (tab.id !== "Sensors") state.sensorsSubFilter = "all";
+              if (tab.id !== "Thrusters") state.propulsionSubFilter = "all";
+              if (tab.id !== "Packing") state.packingSubFilter = "all";
+              renderTabs();
+              fetchData();
+            };
+            tabsEl.appendChild(btn);
+          }
+        });
+      }
+
+      function renderTable() {
+        tbodyEl.innerHTML = "";
+        const filteredRows = state.rows.filter((row) => Number(row.to_order ?? 0) >= 1);
+        if (!filteredRows.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 7;
+          td.className = "muted";
+          td.textContent = state.rows.length ? "Currently no items needed to produce" : "No items found for this work area.";
+          tr.appendChild(td);
+          tbodyEl.appendChild(tr);
+          summaryEl.textContent = "";
+          return;
+        }
+
+        let totalToOrder = 0;
+
+        const isRed = (row) => Number(row.qty_on_hand_unreserved ?? 0) <= 0;
+        const shortfall = (row) => {
+          const qty = Number(row.qty_on_hand_unreserved ?? 0);
+          const minQty = Number(row.min_qty ?? 0);
+          return minQty - qty;
+        };
+        const dir = state.sortDir === "desc" ? -1 : 1;
+        const isNeutralRow = (row) => {
+          const minQty = Number(row.min_qty ?? 0);
+          const toOrder = Number(row.to_order ?? 0);
+          return (minQty === -1 || minQty === 0) && toOrder === 0;
+        };
+        const sortedRows = [...filteredRows].sort((a, b) => {
+          const redA = isRed(a) ? 0 : 1;
+          const redB = isRed(b) ? 0 : 1;
+          if (redA !== redB) return redA - redB;
+          const va = shortfall(a);
+          const vb = shortfall(b);
+          const cmp = (va - vb) * dir;
+          if (cmp !== 0) return cmp;
+          const neutralA = isNeutralRow(a);
+          const neutralB = isNeutralRow(b);
+          if (neutralA === neutralB) return 0;
+          return state.sortDir === "desc" ? (neutralA ? 1 : -1) : (neutralA ? -1 : 1);
+        });
+
+        sortedRows.forEach((row) => {
+          const qty = Number(row.qty_on_hand_unreserved ?? 0);
+          const minQty = Number(row.min_qty ?? 0);
+          const toOrder = Number(row.to_order ?? 0);
+          const isNeutral = (minQty === -1 || minQty === 0) && toOrder === 0;
+          const rowStatus = isNeutral ? "neutral" : (qty <= 0 ? "red" : (qty < minQty ? "yellow" : "blue"));
+
+          const tr = document.createElement("tr");
+          tr.className = rowStatus;
+
+          const cells = [
+            row.internal_reference || "—",
+            row.name || "—",
+            row.work_area || "—",
+            formatNumber(row.qty_on_hand_unreserved),
+            formatNumber(row.min_qty),
+            formatNumber(row.to_order),
+          ];
+
+          cells.forEach((value) => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            tbodyEl.appendChild(tr);
+            tr.appendChild(td);
+          });
+
+          const statusTd = document.createElement("td");
+          const scaleEnd = Math.max(minQty, 0.01);
+          let fillPct = 0;
+          if (qty <= 0) {
+            fillPct = 0;
+          } else if (minQty <= 0) {
+            fillPct = 100;
+          } else {
+            fillPct = Math.min(100, (qty / scaleEnd) * 100);
+            fillPct = Math.max(0, fillPct);
+          }
+          const fillWidth = qty <= 0 ? 2 : Math.max(2, fillPct);
+
+          const wrap = document.createElement("div");
+          wrap.className = "safety-bar-wrap";
+          const trackWrap = document.createElement("div");
+          trackWrap.className = "safety-bar-track-wrap";
+          const track = document.createElement("span");
+          track.className = "status-bar-track";
+          track.setAttribute("title", `On hand: ${formatNumber(qty)} | Scale: 0 → ${formatNumber(minQty)} (min)`);
+          const fill = document.createElement("span");
+          fill.className = "status-bar-fill " + rowStatus;
+          fill.style.width = fillWidth + "%";
+          track.appendChild(fill);
+          trackWrap.appendChild(track);
+          wrap.appendChild(trackWrap);
+
+          const commentKey = `dashboard_comment_${(row.internal_reference || "").replace(/\|/g, "_")}|${row.work_area || ""}`;
+          const commentInput = document.createElement("textarea");
+          commentInput.className = "comment-inline";
+          commentInput.placeholder = "Enter comments or notes...";
+          commentInput.rows = 1;
+          commentInput.value = localStorage.getItem(commentKey) || "";
+          commentInput.dataset.commentKey = commentKey;
+
+          function autoGrowComment(ta) {
+            ta.style.height = "auto";
+            ta.style.height = Math.max(ta.scrollHeight, 20) + "px";
+          }
+          commentInput.addEventListener("input", () => autoGrowComment(commentInput));
+          autoGrowComment(commentInput);
+
+          commentInput.addEventListener("blur", () => {
+            const val = commentInput.value.trim();
+            if (val) localStorage.setItem(commentKey, val);
+            else localStorage.removeItem(commentKey);
+          });
+          wrap.appendChild(commentInput);
+
+          statusTd.appendChild(wrap);
+          tr.appendChild(statusTd);
+
+          tbodyEl.appendChild(tr);
+
+          totalToOrder += Number(row.to_order || 0);
+        });
+
+        summaryEl.textContent = `${sortedRows.length} items (To make ≥ 1) • Total to make: ${formatNumber(
+          totalToOrder
+        )}`;
+      }
+
+      async function fetchData() {
+        refreshBtn.classList.add("loading");
+        refreshBtn.disabled = true;
+
+        tbodyEl.innerHTML = "";
+        const loadingRow = document.createElement("tr");
+        const loadingTd = document.createElement("td");
+        loadingTd.colSpan = 7;
+        loadingTd.className = "muted";
+        loadingTd.textContent = "Loading data from Odoo…";
+        loadingRow.appendChild(loadingTd);
+        tbodyEl.appendChild(loadingRow);
+
+        try {
+          const workAreas = getWorkAreasForTab(state.activeTabId);
+          const params = new URLSearchParams();
+          workAreas.forEach((wa) => params.append("work_area", wa));
+          const url = `${API_BASE}/dashboard?${params.toString()}`;
+          const res = await fetch(url);
+          if (!res.ok) {
+            let errorMsg = `API error: ${res.status}`;
+            try {
+              const errorData = await res.json();
+              if (errorData.detail) {
+                errorMsg = errorData.detail;
+              }
+            } catch (e) {
+              // If response isn't JSON, use status text
+              errorMsg = `API error: ${res.status} ${res.statusText}`;
+            }
+            throw new Error(errorMsg);
+          }
+          const data = await res.json();
+          state.rows = data;
+          renderTable();
+          lastRefreshedEl.textContent = "Last refreshed: " + new Date().toLocaleString();
+        } catch (err) {
+          tbodyEl.innerHTML = "";
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 7;
+          td.className = "muted";
+          td.style.color = "#ef4444";
+          td.textContent = `Failed to load data: ${err.message}`;
+          tr.appendChild(td);
+          tbodyEl.appendChild(tr);
+          summaryEl.textContent = "";
+          console.error(err);
+        } finally {
+          refreshBtn.classList.remove("loading");
+          refreshBtn.disabled = false;
+        }
+      }
+
+      function applySort() {
+        state.sortDir = sortDirectionEl.value;
+        renderTable();
+      }
+
+      sortDirectionEl.addEventListener("change", applySort);
+
+      refreshBtn.addEventListener("click", fetchData);
+
+      renderTabs();
+      fetchData();
+    </script>
+  </body>
+  </html>
+

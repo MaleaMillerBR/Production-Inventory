@@ -1,0 +1,22 @@
+# Render Blueprint: one web service that runs the dashboard + API
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: production-inventory-dashboard
+    runtime: python
+    region: oregon
+
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+
+    envVars:
+      - key: ODOO_URL
+        sync: false
+      - key: ODOO_DB
+        sync: false
+      - key: ODOO_USERNAME
+        sync: false
+      - key: ODOO_API_KEY
+        sync: false
+      - key: ODOO_WORK_AREA_MODEL
+        value: mrp.work.area
