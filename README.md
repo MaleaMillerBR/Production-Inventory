@@ -160,3 +160,4 @@ You can host the app on **Render** (free tier) so anyone can open a single URLâ€
 - If you want a different quantity basis:
   - Replace `free_qty` in the `product.product` query with your preferred field (for example `qty_available`).
 - If you track min quantities per location, extend the `stock.warehouse.orderpoint` domain or join to `location_id`/`warehouse_id` as needed.
+# Production-Inventory
