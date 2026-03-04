@@ -553,9 +553,9 @@
         min-width: 80px;
         max-width: 220px;
         width: 100%;
-        min-height: 1.1rem;
-        padding: 0.2rem 0.35rem;
-        font-size: 0.8rem;
+        min-height: 1rem;
+        padding: 0.15rem 0.3rem;
+        font-size: 0.65rem;
         font-family: inherit;
         border: 1px solid #d1d5db;
         border-radius: 0.5rem;
@@ -1077,10 +1077,17 @@
 
       const TABS_WITH_SECTION_COMMENT = ["Sensors", "Thrusters", "Vehicles", "FAA", "WetLink"];
 
-      sectionCommentToggle.addEventListener("click", () => {
-        sectionCommentWrap.classList.toggle("open");
-        if (sectionCommentWrap.classList.contains("open")) {
+      let sectionCommentManualOpen = false;
+
+      sectionCommentToggle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        sectionCommentManualOpen = !sectionCommentManualOpen;
+        if (sectionCommentManualOpen) {
+          sectionCommentWrap.classList.add("open");
           sectionCommentInput.focus();
+        } else {
+          sectionCommentInput.blur();
+          sectionCommentWrap.classList.remove("open");
         }
       });
 
@@ -1092,17 +1099,15 @@
           const val = state.commentsMap[key] || "";
           sectionCommentInput.value = val;
           sectionCommentInput.dataset.tabId = state.activeTabId;
-          if (val.trim()) {
-            sectionCommentPreview.textContent = "— " + val.trim();
+          sectionCommentPreview.textContent = val.trim() ? "— " + val.trim() : "";
+          if (sectionCommentManualOpen) {
             sectionCommentWrap.classList.add("open");
-          } else {
-            sectionCommentPreview.textContent = "";
-            sectionCommentWrap.classList.remove("open");
           }
         } else {
           sectionCommentWrap.classList.remove("visible", "open");
           sectionCommentWrap.setAttribute("aria-hidden", "true");
           sectionCommentPreview.textContent = "";
+          sectionCommentManualOpen = false;
         }
       }
 
@@ -1112,7 +1117,6 @@
         if (!tabId || !TABS_WITH_SECTION_COMMENT.includes(tabId)) return;
         const val = sectionCommentInput.value.trim();
         sectionCommentPreview.textContent = val ? "— " + val : "";
-        if (!val) sectionCommentWrap.classList.remove("open");
         try {
           const saveRes = await fetch(`${API_BASE}/comments`, {
             method: "POST",
@@ -1470,6 +1474,7 @@
           renderTable();
           updateSectionComment();
 
+          const allDataKeys = new Set(data.map((r) => (r.internal_reference || "") + "|" + (r.work_area || "")));
           const isBackorder = state.activeTabId === BACKORDER_TAB_ID;
           const visibleRows = isBackorder
             ? data.filter((r) => { const q = Number(r.qty_on_hand_unreserved ?? 0); const m = Number(r.min_qty ?? 0); return q < 0 || (q === 0 && m >= 1); })
@@ -1478,6 +1483,7 @@
           Object.keys(state.commentsMap).forEach((key) => {
             if (key.startsWith("__tab__|")) return;
             if (!state.commentsMap[key]) return;
+            if (!allDataKeys.has(key)) return;
             if (!visibleKeys.has(key)) {
               const [ref, wa] = key.split("|");
               fetch(`${API_BASE}/comments`, {
