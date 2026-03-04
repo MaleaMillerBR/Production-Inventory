@@ -1458,10 +1458,15 @@
           const commentParams = new URLSearchParams();
           workAreas.forEach((wa) => commentParams.append("work_area", wa));
           try {
+            commentParams.append("work_area", state.activeTabId);
             const commentRes = await fetch(`${API_BASE}/comments?${commentParams.toString()}`);
             if (commentRes.ok) {
               const comments = await commentRes.json();
-              state.commentsMap = {};
+              const savedTabComments = {};
+              Object.keys(state.commentsMap).forEach((k) => {
+                if (k.startsWith("__tab__|")) savedTabComments[k] = state.commentsMap[k];
+              });
+              state.commentsMap = savedTabComments;
               comments.forEach((c) => {
                 const key = (c.internal_reference || "") + "|" + (c.work_area || "");
                 state.commentsMap[key] = c.comment || "";
