@@ -13,6 +13,9 @@ env/
 .env
 backend/.env
 
+# Local comment DB (use Postgres on Render)
+backend/comments.db
+
 # IDE
 .vscode/
 .idea/

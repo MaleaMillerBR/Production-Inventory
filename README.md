@@ -111,7 +111,35 @@ With the backend running:
 
 ## 3. Deploy as a shareable website (one link)
 
-You can host the app on **Render** (free tier) so anyone can open a single URL—no local backend needed.
+You can host the app on **Vercel** (recommended for shared comments) or **Render**.
+
+### Deploy on Vercel (recommended: comments in Vercel Postgres)
+
+1. **Push this project to GitHub** (see step 1 under Render below if needed).
+
+2. **Sign up at [vercel.com](https://vercel.com)** and log in. Connect your GitHub account.
+
+3. **Import the project**  
+   - **Add New** → **Project** → import your repo.  
+   - **Root Directory:** leave as repo root.  
+   - **Framework Preset:** Other (no framework).  
+   - Vercel will use the repo’s `vercel.json`: static files from `frontend/`, API from `api/*.py`.
+
+4. **Environment variables** (Project → Settings → Environment Variables):  
+   - `ODOO_URL` — e.g. `https://erp.bluerobotics.com`  
+   - `ODOO_DB` — e.g. `master`  
+   - `ODOO_USERNAME` — your Odoo API user email  
+   - `ODOO_API_KEY` — that user’s API key  
+
+5. **Comments storage (shared for everyone)**  
+   - In the Vercel project: **Storage** → **Create Database** → **Postgres**.  
+   - Connect the new Postgres database to the project (Vercel will set `POSTGRES_URL`).  
+   - Comments are then stored in Vercel Postgres and synced for everyone with the link.
+
+6. **Deploy**  
+   Click **Deploy**. Your dashboard will be at `https://your-project.vercel.app`. That URL is your shareable link.
+
+   If the home page doesn’t load, in **Project → Settings → General** set **Output Directory** to `frontend` and redeploy.
 
 ### One-time setup on Render
 
@@ -145,19 +173,20 @@ You can host the app on **Render** (free tier) so anyone can open a single URL�
      - `ODOO_API_KEY` — that user’s API key  
    (Same values as in `backend/.env`; never commit `.env`.)
 
+   **Shared comments:** To sync comments for everyone using the link, add a **PostgreSQL** database on Render (Dashboard → **New** → **PostgreSQL**), then in your Web Service add the **Internal Database URL** as an env var named `DATABASE_URL`. Render sets this automatically if you attach the database to the service. Without `DATABASE_URL`, comments are stored in a local SQLite file (fine for local dev; on Render they would be lost on each deploy).
+
 5. **Deploy**  
    Click **Create Web Service**. After the first deploy, Render will give you a URL like `https://production-inventory-dashboard-xxxx.onrender.com`. That’s your **shareable link**—open it in a browser and the dashboard and API both work from that URL.
 
 ### After deployment
 
 - **Share the link** with your team; no need to run anything locally.  
-- **Comments/notes** in the dashboard are stored in each browser’s localStorage, so they’re per device, not shared across people.  
+- **Comments/notes** in the dashboard are synced for everyone with the link when the backend has a database (`DATABASE_URL` on Render). Without it, comments are stored locally only (SQLite file or lost on deploy).  
 - On the free tier, the service may spin down after inactivity; the first open after that can take a short time to wake up.
 
 ## 4. Adapting to your Odoo
 
-- If your **Work Area** is stored on another model/field (e.g. a different custom field on `mrp.bom`), change `WORK_AREA_FIELD` in `backend/main.py`.
+- If your **Work Area** is stored on another model/field (e.g. a different custom field on `mrp.bom`), change `WORK_AREA_FIELD` and `WORK_AREA_MODEL` in `lib/constants.py`.
 - If you want a different quantity basis:
   - Replace `free_qty` in the `product.product` query with your preferred field (for example `qty_available`).
 - If you track min quantities per location, extend the `stock.warehouse.orderpoint` domain or join to `location_id`/`warehouse_id` as needed.
-# Production-Inventory
