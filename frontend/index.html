@@ -941,7 +941,7 @@
                 <th class="mono">To Make</th>
                 <th>Safety Stock</th>
                 <th class="mono">% Completed</th>
-                <th id="notes-header" class="mono">Notes</th>
+                <th id="notes-header" class="mono" style="display:none;">Notes</th>
               </tr>
             </thead>
             <tbody id="table-body"></tbody>
@@ -1165,7 +1165,9 @@
 
       function renderTable() {
         tbodyEl.innerHTML = "";
-        const totalCols = 9;
+        const hasNotes = state.activeTabId === "Packing" || state.activeTabId === BACKORDER_TAB_ID;
+        document.getElementById("notes-header").style.display = hasNotes ? "" : "none";
+        const totalCols = hasNotes ? 9 : 8;
 
         const isBackorder = state.activeTabId === BACKORDER_TAB_ID;
         const filteredRows = isBackorder
@@ -1261,46 +1263,48 @@
           pctTd.textContent = Math.round(fillPct) + "%";
           tr.appendChild(pctTd);
 
-          const commentTd = document.createElement("td");
-          const commentMapKey = (row.internal_reference || "") + "|" + (row.work_area || "");
-          const commentInput = document.createElement("textarea");
-          commentInput.className = "comment-inline";
-          commentInput.placeholder = "Enter comments or notes...";
-          commentInput.rows = 1;
-          commentInput.value = state.commentsMap[commentMapKey] || "";
-          commentInput.dataset.internalRef = row.internal_reference || "";
-          commentInput.dataset.workArea = row.work_area || "";
+          if (hasNotes) {
+            const commentTd = document.createElement("td");
+            const commentMapKey = (row.internal_reference || "") + "|" + (row.work_area || "");
+            const commentInput = document.createElement("textarea");
+            commentInput.className = "comment-inline";
+            commentInput.placeholder = "Enter comments or notes...";
+            commentInput.rows = 1;
+            commentInput.value = state.commentsMap[commentMapKey] || "";
+            commentInput.dataset.internalRef = row.internal_reference || "";
+            commentInput.dataset.workArea = row.work_area || "";
 
-          function autoGrowComment(ta) {
-            ta.style.height = "0";
-            ta.style.height = Math.max(ta.scrollHeight, 20) + "px";
-          }
-          commentInput.addEventListener("input", () => autoGrowComment(commentInput));
-          autoGrowComment(commentInput);
-
-          commentInput.addEventListener("blur", async () => {
-            commentInput.scrollTop = 0;
-            const val = commentInput.value.trim();
-            const payload = {
-              internal_reference: commentInput.dataset.internalRef || "",
-              work_area: commentInput.dataset.workArea || "",
-              comment: val,
-            };
-            try {
-              const saveRes = await fetch(`${API_BASE}/comments`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              if (saveRes.ok) {
-                state.commentsMap[commentMapKey] = val;
-              }
-            } catch (e) {
-              console.warn("Could not save comment:", e);
+            function autoGrowComment(ta) {
+              ta.style.height = "0";
+              ta.style.height = Math.max(ta.scrollHeight, 20) + "px";
             }
-          });
-          commentTd.appendChild(commentInput);
-          tr.appendChild(commentTd);
+            commentInput.addEventListener("input", () => autoGrowComment(commentInput));
+            autoGrowComment(commentInput);
+
+            commentInput.addEventListener("blur", async () => {
+              commentInput.scrollTop = 0;
+              const val = commentInput.value.trim();
+              const payload = {
+                internal_reference: commentInput.dataset.internalRef || "",
+                work_area: commentInput.dataset.workArea || "",
+                comment: val,
+              };
+              try {
+                const saveRes = await fetch(`${API_BASE}/comments`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                if (saveRes.ok) {
+                  state.commentsMap[commentMapKey] = val;
+                }
+              } catch (e) {
+                console.warn("Could not save comment:", e);
+              }
+            });
+            commentTd.appendChild(commentInput);
+            tr.appendChild(commentTd);
+          }
 
           tbodyEl.appendChild(tr);
 
@@ -1319,7 +1323,7 @@
         tbodyEl.innerHTML = "";
         const loadingRow = document.createElement("tr");
         const loadingTd = document.createElement("td");
-        loadingTd.colSpan = 9;
+        loadingTd.colSpan = (state.activeTabId === "Packing" || state.activeTabId === BACKORDER_TAB_ID) ? 9 : 8;
         loadingTd.className = "muted";
         loadingTd.textContent = "Loading data from Odoo…";
         loadingRow.appendChild(loadingTd);
@@ -1388,7 +1392,7 @@
           tbodyEl.innerHTML = "";
           const tr = document.createElement("tr");
           const td = document.createElement("td");
-          td.colSpan = 9;
+          td.colSpan = (state.activeTabId === "Packing" || state.activeTabId === BACKORDER_TAB_ID) ? 9 : 8;
           td.className = "muted";
           td.style.color = "#ef4444";
           td.textContent = `Failed to load data: ${err.message}`;
