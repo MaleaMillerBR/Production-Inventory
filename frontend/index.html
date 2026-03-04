@@ -1075,7 +1075,7 @@
       const sectionCommentToggle = document.getElementById("section-comment-toggle");
       const sectionCommentPreview = document.getElementById("section-comment-preview");
 
-      const TABS_WITH_SECTION_COMMENT = ["Sensors", "Thrusters", "Vehicles", "FAA", "WetLink"];
+      const TABS_WITH_SECTION_COMMENT = ["Sensors", "Thrusters", "Vehicles", "FAA", "WetLink", "Packing", "Backorder"];
 
       let sectionCommentManualOpen = false;
 
@@ -1111,28 +1111,26 @@
         }
       }
 
-      sectionCommentInput.addEventListener("blur", async () => {
-        sectionCommentInput.scrollTop = 0;
+      function saveSectionComment() {
         const tabId = sectionCommentInput.dataset.tabId;
         if (!tabId || !TABS_WITH_SECTION_COMMENT.includes(tabId)) return;
         const val = sectionCommentInput.value.trim();
         sectionCommentPreview.textContent = val ? "— " + val : "";
-        try {
-          const saveRes = await fetch(`${API_BASE}/comments`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              internal_reference: "__tab__",
-              work_area: tabId,
-              comment: val,
-            }),
-          });
-          if (saveRes.ok) {
-            state.commentsMap["__tab__|" + tabId] = val;
-          }
-        } catch (e) {
-          console.warn("Could not save section comment:", e);
-        }
+        state.commentsMap["__tab__|" + tabId] = val;
+        fetch(`${API_BASE}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            internal_reference: "__tab__",
+            work_area: tabId,
+            comment: val,
+          }),
+        }).catch((e) => console.warn("Could not save section comment:", e));
+      }
+
+      sectionCommentInput.addEventListener("blur", () => {
+        sectionCommentInput.scrollTop = 0;
+        saveSectionComment();
       });
 
       const SENSORS_SUB_OPTIONS = [
@@ -1423,6 +1421,7 @@
       }
 
       async function fetchData() {
+        saveSectionComment();
         refreshBtn.classList.add("loading");
         refreshBtn.disabled = true;
 
@@ -1526,7 +1525,7 @@
       renderTabs();
       fetchData();
 
-      setInterval(fetchData, 30000);
+      setInterval(fetchData, 3600000);
     </script>
   </body>
   </html>
