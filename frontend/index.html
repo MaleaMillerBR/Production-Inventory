@@ -1122,26 +1122,61 @@
         }
       }
 
-      function saveSectionComment() {
+      function saveAllVisibleItemComments() {
+        document.querySelectorAll(".comment-inline").forEach((ta) => {
+          const ref = ta.dataset.internalRef || "";
+          const wa = ta.dataset.workArea || "";
+          const val = ta.value.trim();
+          const key = ref + "|" + wa;
+          if (state.commentsMap[key] !== val) {
+            state.commentsMap[key] = val;
+            navigator.sendBeacon(
+              `${API_BASE}/comments`,
+              new Blob([JSON.stringify({ internal_reference: ref, work_area: wa, comment: val })], { type: "application/json" })
+            );
+          }
+        });
+      }
+
+      function saveSectionComment(useBeacon) {
         const tabId = sectionCommentInput.dataset.tabId;
         if (!tabId || !TABS_WITH_SECTION_COMMENT.includes(tabId)) return;
         const val = sectionCommentInput.value.trim();
         sectionCommentPreview.textContent = val ? "— " + val : "";
         state.commentsMap["__tab__|" + tabId] = val;
-        fetch(`${API_BASE}/comments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            internal_reference: "__tab__",
-            work_area: tabId,
-            comment: val,
-          }),
-        }).catch((e) => console.warn("Could not save section comment:", e));
+        const payload = JSON.stringify({
+          internal_reference: "__tab__",
+          work_area: tabId,
+          comment: val,
+        });
+        if (useBeacon) {
+          navigator.sendBeacon(
+            `${API_BASE}/comments`,
+            new Blob([payload], { type: "application/json" })
+          );
+        } else {
+          fetch(`${API_BASE}/comments`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+          }).catch((e) => console.warn("Could not save section comment:", e));
+        }
       }
 
       sectionCommentInput.addEventListener("blur", () => {
         sectionCommentInput.scrollTop = 0;
         saveSectionComment();
+      });
+
+      let _sectionSaveTimer = null;
+      sectionCommentInput.addEventListener("input", () => {
+        clearTimeout(_sectionSaveTimer);
+        _sectionSaveTimer = setTimeout(saveSectionComment, 800);
+      });
+
+      window.addEventListener("beforeunload", () => {
+        saveSectionComment(true);
+        saveAllVisibleItemComments();
       });
 
       const SENSORS_SUB_OPTIONS = [
@@ -1393,7 +1428,20 @@
               ta.style.height = "0";
               ta.style.height = Math.max(ta.scrollHeight, 20) + "px";
             }
-            commentInput.addEventListener("input", () => autoGrowComment(commentInput));
+            commentInput.addEventListener("input", () => {
+              autoGrowComment(commentInput);
+              clearTimeout(commentInput._saveTimer);
+              commentInput._saveTimer = setTimeout(() => {
+                const v = commentInput.value.trim();
+                const k = (commentInput.dataset.internalRef || "") + "|" + (commentInput.dataset.workArea || "");
+                state.commentsMap[k] = v;
+                fetch(`${API_BASE}/comments`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ internal_reference: commentInput.dataset.internalRef || "", work_area: commentInput.dataset.workArea || "", comment: v }),
+                }).catch(() => {});
+              }, 800);
+            });
             autoGrowComment(commentInput);
 
             commentInput.addEventListener("blur", async () => {
