@@ -414,6 +414,17 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         max-width: 200px;
+        position: relative;
+        cursor: default;
+      }
+      td:nth-child(2):hover {
+        overflow: visible;
+        white-space: normal;
+        word-break: break-word;
+        z-index: 5;
+        background: var(--card);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        border-radius: 0.25rem;
       }
 
       th:nth-child(3),
