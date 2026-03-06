@@ -9,25 +9,29 @@ if str(_root) not in sys.path:
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / "backend" / ".env")
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Depends
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 from pydantic import BaseModel
 from typing import List, Optional
 
-app = FastAPI(title="Production Inventory Dashboard API")
-
 SESSION_SECRET = os.getenv("SESSION_SECRET_KEY", "change-me-to-a-real-secret")
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title="Production Inventory Dashboard API",
+    middleware=[
+        Middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        ),
+        Middleware(SessionMiddleware, secret_key=SESSION_SECRET),
+    ],
 )
 
 oauth = OAuth()
@@ -40,7 +44,6 @@ oauth.register(
 )
 
 ALLOWED_DOMAIN = "@bluerobotics.com"
-PUBLIC_PATHS = {"/login", "/auth", "/logout", "/health"}
 
 ACCESS_DENIED_HTML = """<!DOCTYPE html>
 <html><head><title>Access Denied</title>
@@ -61,27 +64,28 @@ ACCESS_DENIED_HTML = """<!DOCTYPE html>
 </div></body></html>"""
 
 
-@app.middleware("http")
-async def require_auth(request: Request, call_next):
-    try:
-        path = request.url.path
-        if path in PUBLIC_PATHS or path.startswith("/login") or path.startswith("/auth"):
-            return await call_next(request)
-        user = request.session.get("user")
-        if not user:
-            if path.startswith("/api/"):
-                return JSONResponse({"detail": "Not authenticated"}, status_code=401)
-            return RedirectResponse(url="/login")
-        return await call_next(request)
-    except Exception as e:
-        import traceback
-        return JSONResponse({"error": str(e), "traceback": traceback.format_exc()}, status_code=500)
+def _get_session_user(request: Request):
+    """Return the logged-in user dict or None."""
+    if "session" not in request.scope:
+        return None
+    return request.session.get("user")
 
+
+def require_user(request: Request):
+    """FastAPI dependency: raises 401 if not authenticated."""
+    user = _get_session_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
+# ── Public routes (no auth needed) ───────────────────────────────
 
 @app.get("/health")
-async def health():
+async def health(request: Request):
     return {
         "status": "ok",
+        "session_in_scope": "session" in request.scope,
         "google_client_id_set": bool(os.getenv("GOOGLE_CLIENT_ID")),
         "session_secret_set": bool(os.getenv("SESSION_SECRET_KEY")),
         "frontend_exists": (_root / "frontend" / "index.html").is_file(),
@@ -136,8 +140,13 @@ async def logout(request: Request):
     return RedirectResponse(url="/login")
 
 
+# ── Protected routes ─────────────────────────────────────────────
+
 @app.get("/")
 async def root(request: Request):
+    user = _get_session_user(request)
+    if not user:
+        return RedirectResponse(url="/login")
     html_path = _root / "frontend" / "index.html"
     if not html_path.is_file():
         return HTMLResponse("<p>Frontend file not found.</p>", status_code=500)
@@ -145,12 +154,11 @@ async def root(request: Request):
 
 
 @app.get("/api/me")
-async def me(request: Request):
-    user = request.session.get("user")
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+async def me(user: dict = Depends(require_user)):
     return user
 
+
+# ── Business logic imports ───────────────────────────────────────
 
 try:
     from lib.constants import WORK_AREAS
@@ -187,12 +195,13 @@ if _imports_ok:
         _ensure_comments_table()
 
     @app.get("/api/work-areas")
-    def get_work_areas() -> List[str]:
+    def get_work_areas(_user: dict = Depends(require_user)) -> List[str]:
         return WORK_AREAS
 
     @app.get("/api/dashboard")
     def get_dashboard(
         work_area: Optional[List[str]] = Query(None),
+        _user: dict = Depends(require_user),
     ):
         try:
             return build_dashboard_rows(odoo_client, work_area or WORK_AREAS)
@@ -206,6 +215,7 @@ if _imports_ok:
     @app.get("/api/comments")
     def get_comments(
         work_area: Optional[List[str]] = Query(None),
+        _user: dict = Depends(require_user),
     ) -> List[dict]:
         _ensure_comments_table()
         return get_comments_list(work_area)
@@ -216,7 +226,7 @@ if _imports_ok:
         comment: str
 
     @app.post("/api/comments")
-    def save_comment(body: CommentBody) -> dict:
+    def save_comment(body: CommentBody, _user: dict = Depends(require_user)) -> dict:
         _ensure_comments_table()
         db_save_comment(body.internal_reference, body.work_area, body.comment or "")
         return {"ok": True}
