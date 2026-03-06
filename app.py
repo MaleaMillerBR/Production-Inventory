@@ -107,6 +107,12 @@ async def logout(request: Request):
     return RedirectResponse(url="/login")
 
 
+@app.get("/")
+async def root(request: Request):
+    html_path = _root / "frontend" / "index.html"
+    return HTMLResponse(html_path.read_text())
+
+
 @app.get("/api/me")
 async def me(request: Request):
     user = request.session.get("user")
