@@ -40,7 +40,7 @@ oauth.register(
 )
 
 ALLOWED_DOMAIN = "@bluerobotics.com"
-PUBLIC_PATHS = {"/login", "/auth", "/logout"}
+PUBLIC_PATHS = {"/login", "/auth", "/logout", "/health"}
 
 ACCESS_DENIED_HTML = """<!DOCTYPE html>
 <html><head><title>Access Denied</title>
@@ -63,15 +63,30 @@ ACCESS_DENIED_HTML = """<!DOCTYPE html>
 
 @app.middleware("http")
 async def require_auth(request: Request, call_next):
-    path = request.url.path
-    if path in PUBLIC_PATHS or path.startswith("/login") or path.startswith("/auth"):
+    try:
+        path = request.url.path
+        if path in PUBLIC_PATHS or path.startswith("/login") or path.startswith("/auth"):
+            return await call_next(request)
+        user = request.session.get("user")
+        if not user:
+            if path.startswith("/api/"):
+                return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+            return RedirectResponse(url="/login")
         return await call_next(request)
-    user = request.session.get("user")
-    if not user:
-        if path.startswith("/api/"):
-            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
-        return RedirectResponse(url="/login")
-    return await call_next(request)
+    except Exception as e:
+        import traceback
+        return JSONResponse({"error": str(e), "traceback": traceback.format_exc()}, status_code=500)
+
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "google_client_id_set": bool(os.getenv("GOOGLE_CLIENT_ID")),
+        "session_secret_set": bool(os.getenv("SESSION_SECRET_KEY")),
+        "frontend_exists": (_root / "frontend" / "index.html").is_file(),
+        "imports_ok": globals().get("_imports_ok", "not evaluated"),
+    }
 
 
 @app.get("/login")
