@@ -110,6 +110,26 @@
         gap: 0.75rem;
       }
 
+      .user-block {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.15rem;
+        font-size: 0.7rem;
+      }
+      .user-email {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .logout-link {
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 0.65rem;
+      }
+      .logout-link:hover {
+        text-decoration: underline;
+      }
+
       .refresh-block {
         display: flex;
         flex-direction: column;
@@ -995,6 +1015,10 @@
           </button>
             <div id="last-refreshed" class="last-refreshed muted" aria-live="polite"></div>
           </div>
+          <div class="user-block" id="user-block" style="display:none;">
+            <span class="user-email" id="user-email"></span>
+            <a href="/logout" class="logout-link">Sign out</a>
+          </div>
         </div>
       </div>
 
@@ -1049,6 +1073,24 @@
 
     <script>
       const API_BASE = typeof window !== "undefined" && window.location?.host ? `${window.location.origin}/api` : "http://localhost:8001/api";
+
+      (async function checkAuth() {
+        try {
+          const res = await fetch(`${API_BASE}/me`, { credentials: "same-origin" });
+          if (res.ok) {
+            const user = await res.json();
+            const block = document.getElementById("user-block");
+            const emailEl = document.getElementById("user-email");
+            emailEl.textContent = user.email || "";
+            block.style.display = "";
+          } else if (res.status === 401) {
+            window.location.href = "/login";
+            return;
+          }
+        } catch (e) {
+          console.warn("Auth check failed:", e);
+        }
+      })();
 
       const VEHICLES_TAB_ID = "Vehicles";
       const VEHICLES_WORK_AREAS = ["ROV", "FXTI/SPOOL/TETHER", "BlueBoat"];
