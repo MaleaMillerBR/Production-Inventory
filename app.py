@@ -98,10 +98,17 @@ async def login(request: Request):
             "<p>Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your Vercel environment variables.</p>",
             status_code=503,
         )
-    redirect_uri = str(request.url_for("auth"))
-    if os.getenv("VERCEL"):
-        redirect_uri = redirect_uri.replace("http://", "https://")
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    try:
+        redirect_uri = str(request.url_for("auth"))
+        if os.getenv("VERCEL"):
+            redirect_uri = redirect_uri.replace("http://", "https://")
+        return await oauth.google.authorize_redirect(request, redirect_uri)
+    except Exception as e:
+        import traceback
+        return HTMLResponse(
+            f"<h2>Login error</h2><pre>{traceback.format_exc()}</pre>",
+            status_code=500,
+        )
 
 
 @app.get("/auth")
