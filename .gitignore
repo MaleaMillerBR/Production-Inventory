@@ -25,3 +25,13 @@ backend/comments.db
 # OS
 .DS_Store
 Thumbs.db
+
+# Accidentally committed venv copies
+\#/
+create/
+folder/
+now/
+should/
+the/
+this/
+Production-Dashboard/
