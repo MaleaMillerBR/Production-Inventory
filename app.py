@@ -76,6 +76,13 @@ async def require_auth(request: Request, call_next):
 
 @app.get("/login")
 async def login(request: Request):
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "")
+    if not client_id:
+        return HTMLResponse(
+            "<h2>Google OAuth not configured</h2>"
+            "<p>Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your Vercel environment variables.</p>",
+            status_code=503,
+        )
     redirect_uri = str(request.url_for("auth"))
     if os.getenv("VERCEL"):
         redirect_uri = redirect_uri.replace("http://", "https://")
@@ -110,6 +117,8 @@ async def logout(request: Request):
 @app.get("/")
 async def root(request: Request):
     html_path = _root / "frontend" / "index.html"
+    if not html_path.is_file():
+        return HTMLResponse("<p>Frontend file not found.</p>", status_code=500)
     return HTMLResponse(html_path.read_text())
 
 
